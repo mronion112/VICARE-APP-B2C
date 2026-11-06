@@ -60,8 +60,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -99,11 +102,11 @@ private val Amber = Color(0xFFB77A20)
 private val Red = Color(0xFFC84B5A)
 private val Border = Color(0xFFE3EBF0)
 
-private enum class FamilyPage(val title: String, val navTitle: String, val glyph: String) {
-    HOME("Giám sát sức khỏe", "Theo dõi", "⌂"),
-    ALERTS("Trung tâm cảnh báo", "Cảnh báo", "!"),
-    PROFILE("Thông tin gia đình", "Gia đình", "♡"),
-    SETTINGS("Cài đặt", "Tài khoản", "⋯"),
+private enum class FamilyPage(val title: String, val navTitle: String, val icon: String) {
+    HOME("Giám sát sức khỏe", "Theo dõi", "monitor"),
+    ALERTS("Trung tâm cảnh báo", "Cảnh báo", "bell"),
+    PROFILE("Thông tin gia đình", "Gia đình", "family"),
+    SETTINGS("Cài đặt", "Tài khoản", "settings"),
 }
 
 @Composable
@@ -153,7 +156,7 @@ fun VicareFamilyApp() {
                     NavigationBarItem(
                         selected = page == destination,
                         onClick = { navigate(destination) },
-                        icon = { Text(destination.glyph, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+                        icon = { FamilyIcon(destination.icon, if (page == destination) Blue else Muted, 21.dp) },
                         label = { Text(destination.navTitle, fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Blue,
@@ -245,7 +248,12 @@ private fun LoginScreen(onLogin: (String, String) -> Boolean) {
                     modifier = Modifier.fillMaxWidth().height(52.dp).padding(top = 6.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Blue),
-                ) { Text("Đăng nhập", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Đăng nhập", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        FamilyIcon("arrow", Color.White, 17.dp)
+                    }
+                }
             }
         }
         Text("Chăm sóc từ điều gần gũi nhất", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 22.dp))
@@ -264,9 +272,24 @@ private fun AppTopBar(family: FamilyAccount, openCount: Int, onOpenAlerts: () ->
                 Text("Y NHÃN", color = DeepBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
                 Text(family.name, color = Muted, fontSize = 10.sp)
             }
+            if (openCount > 0) {
+                Text(
+                    "$openCount mới · chạm xem",
+                    modifier = Modifier.clickable(onClick = onOpenAlerts).padding(end = 8.dp),
+                    color = Amber,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
             Box(contentAlignment = Alignment.TopEnd) {
-                Surface(onClick = onOpenAlerts, shape = CircleShape, color = PaleBlue) {
-                    Text("!", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = Blue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Surface(
+                    onClick = onOpenAlerts,
+                    modifier = Modifier.semantics { contentDescription = "Mở trung tâm cảnh báo" },
+                    shape = CircleShape,
+                    color = PaleBlue,
+                ) {
+                    FamilyIcon("bell", Blue, 21.dp, Modifier.padding(9.dp))
                 }
                 if (openCount > 0) Surface(modifier = Modifier.size(17.dp), color = Red, shape = CircleShape) {
                     Box(contentAlignment = Alignment.Center) { Text(openCount.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
@@ -302,15 +325,15 @@ private fun DashboardScreen(
     ) {
         WelcomeCard(family, status, openCount, updatedAt, onOpenAlerts)
         MemberCard(family, status, onOpenProfile)
+        CameraSection(family)
         SectionHeading("CHỈ SỐ SỨC KHỎE", "Chỉ số sinh tồn", "Cập nhật $updatedAt")
         VitalsGrid(liveVitals)
-        CameraSection(family)
         if (openCount > 0) {
             AlertsSummary(family, openCount, onOpenAlerts)
         } else {
             Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFEFF8F4)) {
                 Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("✓", color = Teal, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    FamilyIcon("shield", Teal, 22.dp)
                     Column(Modifier.padding(start = 11.dp)) {
                         Text("Chưa có cảnh báo mới", color = Teal, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Text("Các chỉ số của gia đình đang được theo dõi.", color = Muted, fontSize = 11.sp)
@@ -336,7 +359,10 @@ private fun WelcomeCard(family: FamilyAccount, status: HealthStatus, openCount: 
                 Text("Cập nhật lúc $updatedAt", color = Color(0xFFD4EAF3), fontSize = 10.sp)
             }
             if (openCount > 0) TextButton(onClick = onOpenAlerts, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
-                Text("Xem cảnh báo   →", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Xem cảnh báo", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    FamilyIcon("arrow", Color.White, 15.dp)
+                }
             }
         }
     }
@@ -382,28 +408,28 @@ private fun MemberStat(label: String, value: String, modifier: Modifier = Modifi
 private fun VitalsGrid(vitals: FamilyVitals) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("Huyết áp", "${vitals.systolic}/${vitals.diastolic}", "mmHg", metricStatus("bp", vitals.systolic.toDouble()), "◉", Modifier.weight(1f))
-            MetricCard("Nhịp tim", vitals.heartRate.toString(), "nhịp/phút", metricStatus("heart", vitals.heartRate.toDouble()), "♥", Modifier.weight(1f))
+            MetricCard("Huyết áp", "${vitals.systolic}/${vitals.diastolic}", "mmHg", metricStatus("bp", vitals.systolic.toDouble()), "activity", Modifier.weight(1f))
+            MetricCard("Nhịp tim", vitals.heartRate.toString(), "nhịp/phút", metricStatus("heart", vitals.heartRate.toDouble()), "heart", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("SpO₂", vitals.spo2.toString(), "%", metricStatus("spo2", vitals.spo2.toDouble()), "◌", Modifier.weight(1f))
-            MetricCard("Nhiệt độ", String.format(Locale("vi", "VN"), "%.1f", vitals.temperature), "°C", metricStatus("temperature", vitals.temperature), "♨", Modifier.weight(1f))
+            MetricCard("SpO₂", vitals.spo2.toString(), "%", metricStatus("spo2", vitals.spo2.toDouble()), "oxygen", Modifier.weight(1f))
+            MetricCard("Nhiệt độ", String.format(Locale("vi", "VN"), "%.1f", vitals.temperature), "°C", metricStatus("temperature", vitals.temperature), "thermometer", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("Nhịp thở", vitals.respiratoryRate.toString(), "lần/phút", metricStatus("respiration", vitals.respiratoryRate.toDouble()), "≋", Modifier.weight(1f))
+            MetricCard("Nhịp thở", vitals.respiratoryRate.toString(), "lần/phút", metricStatus("respiration", vitals.respiratoryRate.toDouble()), "lungs", Modifier.weight(1f))
             Surface(modifier = Modifier.weight(1f).height(112.dp), color = Color.Transparent) {}
         }
     }
 }
 
 @Composable
-private fun MetricCard(label: String, value: String, unit: String, status: HealthStatus, glyph: String, modifier: Modifier = Modifier) {
+private fun MetricCard(label: String, value: String, unit: String, status: HealthStatus, icon: String, modifier: Modifier = Modifier) {
     val tone = when (status) { HealthStatus.NORMAL -> Teal; HealthStatus.WARNING -> Amber; HealthStatus.CRITICAL -> Red }
     Card(modifier = modifier.height(112.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = androidx.compose.foundation.BorderStroke(1.dp, if (status == HealthStatus.NORMAL) Border else tone.copy(alpha = .25f))) {
         Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Surface(shape = RoundedCornerShape(10.dp), color = tone.copy(alpha = .11f)) {
-                    Text(glyph, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = tone, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    FamilyIcon(icon, tone, 18.dp, Modifier.padding(7.dp))
                 }
                 Text(when (status) { HealthStatus.NORMAL -> "Ổn định"; HealthStatus.WARNING -> "Theo dõi"; HealthStatus.CRITICAL -> "Khẩn cấp" }, color = tone, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -439,8 +465,8 @@ private fun CameraSection(family: FamilyAccount) {
                 }
                 VideoPlayer(cameraVideoResource(family.cameraSubject, thermal), Modifier.fillMaxWidth().aspectRatio(16f / 10f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CameraModeChip("Hồng ngoại", selected = !thermal) { thermal = false }
-                    CameraModeChip("Ảnh nhiệt", selected = thermal) { thermal = true }
+                    CameraModeChip("camera", "Hồng ngoại", selected = !thermal) { thermal = false }
+                    CameraModeChip("thermometer", "Ảnh nhiệt", selected = thermal) { thermal = true }
                 }
             }
         }
@@ -448,9 +474,12 @@ private fun CameraSection(family: FamilyAccount) {
 }
 
 @Composable
-private fun CameraModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun CameraModeChip(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = RoundedCornerShape(9.dp), color = if (selected) PaleBlue else Color(0xFFF7F9FA), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFFB8DDEB) else Border)) {
-        Text(label, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (selected) Blue else Muted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            FamilyIcon(icon, if (selected) Blue else Muted, 15.dp)
+            Text(label, color = if (selected) Blue else Muted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -458,12 +487,12 @@ private fun CameraModeChip(label: String, selected: Boolean, onClick: () -> Unit
 private fun AlertsSummary(family: FamilyAccount, openCount: Int, onOpenAlerts: () -> Unit) {
     Surface(onClick = onOpenAlerts, shape = RoundedCornerShape(16.dp), color = Color(0xFFFFFAF0), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0E2C9))) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(10.dp), color = Color.White) { Text("!", modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Amber, fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+            Surface(shape = RoundedCornerShape(10.dp), color = Color.White) { FamilyIcon("alert", Amber, 20.dp, Modifier.padding(8.dp)) }
             Column(Modifier.weight(1f).padding(start = 11.dp)) {
                 Text("Trung tâm cảnh báo", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("$openCount cảnh báo cần gia đình lưu ý", color = Muted, fontSize = 10.sp)
+                Text("$openCount cảnh báo · chạm để xem", color = Muted, fontSize = 10.sp)
             }
-            Text("›", color = Amber, fontSize = 24.sp)
+            FamilyIcon("arrow", Amber, 18.dp)
         }
     }
 }
@@ -477,7 +506,7 @@ private fun AlertsScreen(family: FamilyAccount, resolvedOverrides: Map<String, B
         Text("Những thay đổi sức khỏe và hoạt động cần gia đình lưu ý.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
         Surface(shape = RoundedCornerShape(15.dp), color = if (openCount > 0) Color(0xFFFFF8EA) else Color(0xFFEFF8F4)) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (openCount > 0) "!" else "✓", color = if (openCount > 0) Amber else Teal, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                FamilyIcon(if (openCount > 0) "alert" else "shield", if (openCount > 0) Amber else Teal, 21.dp)
                 Column(Modifier.padding(start = 10.dp)) {
                     Text(if (openCount > 0) "$openCount cảnh báo đang chờ gia đình" else "Gia đình đang an toàn", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(if (openCount > 0) "Xem từng cảnh báo và cập nhật khi đã kiểm tra." else "Hiện không có cảnh báo cần xử lý.", color = Muted, fontSize = 10.sp)
@@ -502,7 +531,7 @@ private fun AlertCard(alert: FamilyAlert, resolved: Boolean, onToggle: () -> Uni
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(9.dp), color = tone.copy(alpha = .1f)) {
-                    Text(if (alert.group == AlertGroup.ACTIVITY) "⌁" else "♥", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = tone, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    FamilyIcon(if (alert.group == AlertGroup.ACTIVITY) "alert" else "activity", tone, 18.dp, Modifier.padding(7.dp))
                 }
                 Text(if (alert.group == AlertGroup.ACTIVITY) "HOẠT ĐỘNG" else "CHỈ SỐ SINH TỒN", modifier = Modifier.weight(1f).padding(start = 9.dp), color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp)
                 Text(if (resolved) "Đã xử lý" else when (alert.severity) { AlertSeverity.CRITICAL -> "Khẩn cấp"; AlertSeverity.WARNING -> "Cần chú ý"; AlertSeverity.INFO -> "Đã ghi nhận" }, color = if (resolved) Teal else tone, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -510,14 +539,27 @@ private fun AlertCard(alert: FamilyAlert, resolved: Boolean, onToggle: () -> Uni
             Text(alert.title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(alert.value, color = tone, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(alert.condition, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
-            alert.camera?.let { Text("◉  $it", color = Muted, fontSize = 10.sp) }
+            alert.camera?.let {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FamilyIcon("camera", Muted, 14.dp)
+                    Text(it, color = Muted, fontSize = 10.sp)
+                }
+            }
             if (alert.hasVideo) {
                 Text("Video sự kiện", color = Ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 VideoPlayer(R.raw.fall_recording, Modifier.fillMaxWidth().aspectRatio(16f / 10f))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("◷  ${alert.occurredAt}", modifier = Modifier.weight(1f), color = Muted, fontSize = 10.sp)
-                TextButton(onClick = onToggle) { Text(if (resolved) "Đã xử lý ✓" else "Đánh dấu đã xử lý", color = if (resolved) Teal else Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    FamilyIcon("clock", Muted, 14.dp)
+                    Text(alert.occurredAt, color = Muted, fontSize = 10.sp)
+                }
+                TextButton(onClick = onToggle) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (resolved) FamilyIcon("check", Teal, 14.dp)
+                        Text(if (resolved) "Đã xử lý" else "Đánh dấu đã xử lý", color = if (resolved) Teal else Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -527,7 +569,7 @@ private fun AlertCard(alert: FamilyAlert, resolved: Boolean, onToggle: () -> Uni
 private fun EmptyAlerts() {
     Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 27.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("✓", color = Teal, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            FamilyIcon("shield", Teal, 30.dp)
             Text("Chưa có cảnh báo mới", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text("Nếu có thay đổi về sức khỏe hoặc hoạt động, thông tin sẽ xuất hiện ở đây.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp, textAlign = TextAlign.Center)
         }
@@ -621,7 +663,10 @@ private fun SettingsScreen(family: FamilyAccount, username: String, modifier: Mo
             }
         }
         Button(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF1F2))) {
-            Text("Đăng xuất khỏi tài khoản", color = Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FamilyIcon("logout", Red, 17.dp)
+                Text("Đăng xuất khỏi tài khoản", color = Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
     }
 }
@@ -667,6 +712,35 @@ private fun InitialAvatar(name: String, size: Dp) {
     Surface(modifier = Modifier.size(size), shape = CircleShape, color = PaleBlue) {
         Box(contentAlignment = Alignment.Center) { Text(initial, color = Blue, fontSize = if (size > 52.dp) 17.sp else 15.sp, fontWeight = FontWeight.Bold) }
     }
+}
+
+@Composable
+private fun FamilyIcon(name: String, tint: Color, size: Dp, modifier: Modifier = Modifier) {
+    val resource = when (name) {
+        "monitor" -> R.drawable.ic_web_monitor
+        "bell" -> R.drawable.ic_web_bell
+        "family" -> R.drawable.ic_web_family
+        "settings" -> R.drawable.ic_web_settings
+        "logout" -> R.drawable.ic_web_logout
+        "heart" -> R.drawable.ic_web_heart
+        "thermometer" -> R.drawable.ic_web_thermometer
+        "oxygen" -> R.drawable.ic_web_oxygen
+        "lungs" -> R.drawable.ic_web_lungs
+        "camera" -> R.drawable.ic_web_camera
+        "shield" -> R.drawable.ic_web_shield
+        "clock" -> R.drawable.ic_web_clock
+        "check" -> R.drawable.ic_web_check
+        "arrow" -> R.drawable.ic_web_arrow
+        "home" -> R.drawable.ic_web_home
+        "activity" -> R.drawable.ic_web_activity
+        else -> R.drawable.ic_web_alert
+    }
+    Image(
+        painter = painterResource(resource),
+        contentDescription = null,
+        modifier = modifier.size(size),
+        colorFilter = ColorFilter.tint(tint),
+    )
 }
 
 private fun statusTone(status: HealthStatus) = when (status) { HealthStatus.NORMAL -> Teal; HealthStatus.WARNING -> Amber; HealthStatus.CRITICAL -> Red }
